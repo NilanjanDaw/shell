@@ -8,16 +8,16 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "definitions.h"
+#include "support.h"
 
-#define MAX_INPUT_SIZE 1024
-#define MAX_TOKEN_SIZE 64
-#define MAX_NUM_TOKENS 64
-#define HISTORY_KEEPER_PATH "/tmp/history"
 const char* SHELL_IMPLEMENTED_COMMANDS[] = {"cd", "history"};
 const int (*SHELL_IMPLEMENTED_COMMANDS_POINTER[2]) (const char **);
+pid_t background_process_list[MAX_PROCESS_LIST], foreground_process_list[MAX_PROCESS_LIST];
 
 char **tokenize(char *line) {
   char **tokens = (char **)malloc(MAX_NUM_TOKENS * sizeof(char *));
@@ -54,39 +54,41 @@ int check_shell_implementation(char *command) {
   return -1;
 }
 
-int cd (const char **tokens) {
-  int size = 0;
-  for (int i = 0; tokens[i] != NULL; i++)
-    size++;
-  if (size > 2) {
-    printf("too many arguments\n");
-    return -1;
+void background_process_reaper() {
+  pid_t pid;
+  int status;
+  while(1) {
+    pid = waitpid(-1, &status, WNOHANG);
+    //pid = wait(NULL);
+    if (pid == -1) {
+      break;
+    }
+    remove_from_list(background_process_list, pid, MAX_PROCESS_LIST, BACKGROUND_PROCESS);
   }
-  if (size == 2)
-    chdir(tokens[1]);
-  else
-    chdir(getenv("HOME"));
-  return 0;
 }
 
-int history(const char **tokens) {
-  printf("history\n");
-  int c;
-  FILE *history_keeper;
-  history_keeper = fopen(HISTORY_KEEPER_PATH, "r");
-  if (history_keeper) {
-      while ((c = getc(history_keeper)) != EOF)
-          putchar(c);
-      fclose(history_keeper);
+void foreground_process_reaper() {
+  pid_t pid;
+  int status;
+  for(int i = 0; i < MAX_PROCESS_LIST; i++) {
+    if (foreground_process_list[i] != 0) {
+      pid = waitpid(foreground_process_list[i], &status, 0);
+      remove_from_list(foreground_process_list, pid, MAX_PROCESS_LIST, FOREGROUND_PROCESS);
+    }
   }
+  
+}
 
-  return 0;
+
+void signal_handler(int signal) {
+  if (signal == SIGCHLD)
+    background_process_reaper();
 }
 
 int start_process(char **tokens) {
-
+  signal(SIGCHLD, signal_handler);
   pid_t pid = fork();
-  
+  insert_into_list(foreground_process_list, pid, MAX_PROCESS_LIST);
   if (pid < 0) {
     fprintf(stderr, "Error Could not fork new process.\n");
     return -1; // if error in creating child process return immediately with error code -1
@@ -104,11 +106,12 @@ int start_process(char **tokens) {
       printf("error in running command\n");
     }
   } else if (pid > 0) {
-    pid_t wait_return_code = wait(NULL);
-    if (wait_return_code < 0) {
-      fprintf(stdin, "error in running command\n");
-    }
-    //printf("Parent %d child pid %d\n", getpid(), (int) pid);
+    foreground_process_reaper();
+    //pid_t wait_return_code = wait(NULL);
+    // if (wait_return_code < 0) {
+    //   fprintf(stdin, "error in running command\n");
+    // }
+    // printf("Parent %d child pid %d\n", getpid(), (int) pid);
   }
   
   return 0;
@@ -144,5 +147,34 @@ int main(int argc, char const *argv[])
 
   
   printf("closed history");
+  return 0;
+}
+
+int cd (const char **tokens) {
+  int size = 0;
+  for (int i = 0; tokens[i] != NULL; i++)
+    size++;
+  if (size > 2) {
+    printf("too many arguments\n");
+    return -1;
+  }
+  if (size == 2)
+    chdir(tokens[1]);
+  else
+    chdir(getenv("HOME"));
+  return 0;
+}
+
+int history(const char **tokens) {
+  printf("history\n");
+  int c;
+  FILE *history_keeper;
+  history_keeper = fopen(HISTORY_KEEPER_PATH, "r");
+  if (history_keeper) {
+      while ((c = getc(history_keeper)) != EOF)
+          putchar(c);
+      fclose(history_keeper);
+  }
+
   return 0;
 }
