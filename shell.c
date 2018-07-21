@@ -18,7 +18,7 @@
 const char* SHELL_IMPLEMENTED_COMMANDS[] = {"cd", "history"};
 const int (*SHELL_IMPLEMENTED_COMMANDS_POINTER[2]) (const char **);
 pid_t background_process_list[MAX_PROCESS_LIST], foreground_process_list[MAX_PROCESS_LIST];
-
+int kill_count = 0;
 char **tokenize(char *line) {
   char **tokens = (char **)malloc(MAX_NUM_TOKENS * sizeof(char *));
   char *token = (char *)malloc(MAX_TOKEN_SIZE * sizeof(char));
@@ -57,13 +57,14 @@ int check_shell_implementation(char *command) {
 void background_process_reaper() {
   pid_t pid;
   int status;
-  while(1) {
+  for (int i = 0; i < MAX_PROCESS_LIST; i++) {
     pid = waitpid(-1, &status, WNOHANG);
     //pid = wait(NULL);
     if (pid == -1) {
       break;
     }
-    remove_from_list(background_process_list, pid, MAX_PROCESS_LIST, BACKGROUND_PROCESS);
+    if (pid != 0 && pid != -1)
+      remove_from_list(background_process_list, pid, MAX_PROCESS_LIST, BACKGROUND_PROCESS);
   }
 }
 
@@ -73,6 +74,7 @@ void foreground_process_reaper() {
   for(int i = 0; i < MAX_PROCESS_LIST; i++) {
     if (foreground_process_list[i] != 0) {
       pid = waitpid(foreground_process_list[i], &status, 0);
+      printf("foregroud process reaped pid: %d\n", pid);
       remove_from_list(foreground_process_list, pid, MAX_PROCESS_LIST, FOREGROUND_PROCESS);
     }
   }
@@ -83,12 +85,25 @@ void foreground_process_reaper() {
 void signal_handler(int signal) {
   if (signal == SIGCHLD)
     background_process_reaper();
+  if (signal == SIGINT) {
+    for(int i = 0; i < MAX_PROCESS_LIST; i++) {
+      if (foreground_process_list[i] != 0) {
+        kill(foreground_process_list[i], SIGTERM);
+      }
+    }
+
+    if (kill_count == 1)
+      kill(getpid(), SIGTERM);
+    kill_count++;
+  }
 }
 
-int start_process(char **tokens) {
-  signal(SIGCHLD, signal_handler);
+int start_process(char **tokens, int type) {
   pid_t pid = fork();
-  insert_into_list(foreground_process_list, pid, MAX_PROCESS_LIST);
+  if (type == FOREGROUND_PROCESS)
+    insert_into_list(foreground_process_list, pid, MAX_PROCESS_LIST, type);
+  else
+    insert_into_list(background_process_list, pid, MAX_PROCESS_LIST, type);
   if (pid < 0) {
     fprintf(stderr, "Error Could not fork new process.\n");
     return -1; // if error in creating child process return immediately with error code -1
@@ -105,18 +120,30 @@ int start_process(char **tokens) {
     if (return_code < 0) {
       printf("error in running command\n");
     }
-  } else if (pid > 0) {
-    foreground_process_reaper();
-    //pid_t wait_return_code = wait(NULL);
-    // if (wait_return_code < 0) {
-    //   fprintf(stdin, "error in running command\n");
-    // }
-    // printf("Parent %d child pid %d\n", getpid(), (int) pid);
-  }
+  } else {
+      //foreground_process_reaper();
+    }
   
-  return 0;
+  return pid;
 }
 
+int check_process_type(char **tokens, int start, int end) {
+  int last_token_index = 0;
+  for(int i = 0; tokens[i] != NULL; i++) {
+    last_token_index = i;
+  }
+  if (last_token_index >= 0) {
+    char *last_token = tokens[last_token_index];
+    if (last_token[strlen(last_token) - 1] == '&') {
+      last_token[strlen(last_token) - 1] = '\0';
+      if (strlen(last_token) == 0)
+        tokens[last_token_index] = NULL;
+      return BACKGROUND_PROCESS;
+    }
+    return FOREGROUND_PROCESS;
+  }
+  return -1;
+}
 
 int main(int argc, char const *argv[])
 {
@@ -126,17 +153,24 @@ int main(int argc, char const *argv[])
   
   SHELL_IMPLEMENTED_COMMANDS_POINTER[0] = cd;
   SHELL_IMPLEMENTED_COMMANDS_POINTER[1] = history;
-  
+  signal(SIGCHLD, signal_handler);
+  signal(SIGINT, signal_handler);
   while (1) {           
     FILE *history_keeper = fopen(HISTORY_KEEPER_PATH, "a");
     printf("Hello>");     
     bzero(line, MAX_INPUT_SIZE);
     fgets(line, MAX_INPUT_SIZE, stdin);  
     fprintf(history_keeper, "%s", line);
+    kill_count = 0;
     line[strlen(line)] = '\n'; 
     tokens = tokenize(line);
-
-    int status = start_process(tokens);
+    int type = check_process_type(tokens, 0, 0);
+    printf("type %d\n", type);
+    int pid = start_process(tokens, type);
+    if (pid > 0 && type == FOREGROUND_PROCESS) {
+      printf("foreground process\n");
+      foreground_process_reaper();
+    }
     // Freeing the allocated memory	
     for(i=0;tokens[i]!=NULL;i++){
         free(tokens[i]);

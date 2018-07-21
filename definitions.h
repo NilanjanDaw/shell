@@ -10,11 +10,12 @@
 char **tokenize(char *line);
 int cd(const char **tokens);
 int history(const char **tokens);
-int start_process(char **tokens);
+int start_process(char **tokens, int type);
 int check_shell_implementation(char *command);
 void signal_handler(int signal);
 void background_process_reaper();
 void foreground_process_reaper();
-int insert_into_list(pid_t* list, pid_t pid,int size);
+int check_process_type(char **tokens, int start, int end);
+int insert_into_list(pid_t* list, pid_t pid, int size, int type);
 int remove_from_list(pid_t *list, pid_t pid, int size, int type);
 void print_list(pid_t *list, int size, int type);
