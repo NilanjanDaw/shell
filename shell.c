@@ -74,7 +74,6 @@ void foreground_process_reaper() {
   for(int i = 0; i < MAX_PROCESS_LIST; i++) {
     if (foreground_process_list[i] != 0) {
       pid = waitpid(foreground_process_list[i], &status, 0);
-      printf("foregroud process reaped pid: %d\n", pid);
       remove_from_list(foreground_process_list, pid, MAX_PROCESS_LIST, FOREGROUND_PROCESS);
     }
   }
@@ -83,23 +82,40 @@ void foreground_process_reaper() {
 
 
 void signal_handler(int signal) {
-  if (signal == SIGCHLD)
+  if (signal == SIGCHLD) {
     background_process_reaper();
+  }
   if (signal == SIGINT) {
     for(int i = 0; i < MAX_PROCESS_LIST; i++) {
       if (foreground_process_list[i] != 0) {
         kill(foreground_process_list[i], SIGTERM);
       }
     }
-
-    if (kill_count == 1)
+    if (kill_count == 0)
+      printf("\nPress Ctrl + C again to exit.\n");
+    if (kill_count >= 1) {
+      printf("\nCleaning up processes\n");
+      for(int i = 0; i < MAX_PROCESS_LIST; i++) {
+        if (foreground_process_list[i] != 0) {
+          kill(foreground_process_list[i], SIGTERM);
+        }
+        if (background_process_list[i] != 0) {
+          kill(background_process_list[i], SIGTERM);
+          pid_t pid = waitpid(background_process_list[i], NULL, 0);
+          if (pid != 0 && pid != -1)
+            remove_from_list(background_process_list, pid, MAX_PROCESS_LIST, BACKGROUND_PROCESS);
+        }
+      }
+      printf("exit parent");
       kill(getpid(), SIGTERM);
+    }
     kill_count++;
   }
 }
 
 int start_process(char **tokens, int type) {
   pid_t pid = fork();
+  setpgid(pid, 0);
   if (type == FOREGROUND_PROCESS)
     insert_into_list(foreground_process_list, pid, MAX_PROCESS_LIST, type);
   else
@@ -120,29 +136,9 @@ int start_process(char **tokens, int type) {
     if (return_code < 0) {
       printf("error in running command\n");
     }
-  } else {
-      //foreground_process_reaper();
-    }
+  }
   
   return pid;
-}
-
-int check_process_type(char **tokens, int start, int end) {
-  int last_token_index = 0;
-  for(int i = 0; tokens[i] != NULL; i++) {
-    last_token_index = i;
-  }
-  if (last_token_index >= 0) {
-    char *last_token = tokens[last_token_index];
-    if (last_token[strlen(last_token) - 1] == '&') {
-      last_token[strlen(last_token) - 1] = '\0';
-      if (strlen(last_token) == 0)
-        tokens[last_token_index] = NULL;
-      return BACKGROUND_PROCESS;
-    }
-    return FOREGROUND_PROCESS;
-  }
-  return -1;
 }
 
 int main(int argc, char const *argv[])
@@ -165,7 +161,9 @@ int main(int argc, char const *argv[])
     line[strlen(line)] = '\n'; 
     tokens = tokenize(line);
     int type = check_process_type(tokens, 0, 0);
-    printf("type %d\n", type);
+    int process_execution_type;
+    int endpoint = get_process_delimiters(tokens, 0, &process_execution_type);
+    printf("type %d endpoint %d execution_type %d\n", type, endpoint, process_execution_type);
     int pid = start_process(tokens, type);
     if (pid > 0 && type == FOREGROUND_PROCESS) {
       printf("foreground process\n");

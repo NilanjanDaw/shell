@@ -5,6 +5,8 @@
 #define MAX_PROCESS_LIST 64
 #define BACKGROUND_PROCESS 0
 #define FOREGROUND_PROCESS 1
+#define SEQUENTIAL_PROCESS 2
+#define PARALLEL_PROCESS 3
 
 
 char **tokenize(char *line);
