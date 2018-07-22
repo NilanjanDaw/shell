@@ -114,31 +114,40 @@ void signal_handler(int signal) {
 }
 
 int start_process(char **tokens, int type) {
-  pid_t pid = fork();
-  setpgid(pid, 0);
-  if (type == FOREGROUND_PROCESS)
-    insert_into_list(foreground_process_list, pid, MAX_PROCESS_LIST, type);
-  else
-    insert_into_list(background_process_list, pid, MAX_PROCESS_LIST, type);
-  if (pid < 0) {
-    fprintf(stderr, "Error Could not fork new process.\n");
-    return -1; // if error in creating child process return immediately with error code -1
-  }
-
-  if (pid == 0) {
-    int return_code = execvp(tokens[0], tokens);
-    int implementation_code = check_shell_implementation(tokens[0]);
-
-    if (return_code < 0 && implementation_code >= 0) {
-      return_code = SHELL_IMPLEMENTED_COMMANDS_POINTER[implementation_code] ((const char **)tokens);
-      
-    }
+  int implementation_code = check_shell_implementation(tokens[0]);
+  if (implementation_code == 0) {
+    int return_code;
+    return_code = SHELL_IMPLEMENTED_COMMANDS_POINTER[implementation_code] ((const char **)tokens);
     if (return_code < 0) {
-      printf("error in running command\n");
+        printf("error in running command\n");
     }
+    return 0;
+  } else {
+    pid_t pid = fork();
+    setpgid(pid, 0);
+    if (type == FOREGROUND_PROCESS)
+      insert_into_list(foreground_process_list, pid, MAX_PROCESS_LIST, type);
+    else
+      insert_into_list(background_process_list, pid, MAX_PROCESS_LIST, type);
+    if (pid < 0) {
+      fprintf(stderr, "Error Could not fork new process.\n");
+      return -1; // if error in creating child process return immediately with error code -1
+    }
+
+    if (pid == 0) {
+      int return_code;
+      if (implementation_code >= 0) {
+        return_code = SHELL_IMPLEMENTED_COMMANDS_POINTER[implementation_code] ((const char **)tokens);
+        
+      } else {
+        return_code = execvp(tokens[0], tokens);
+      }
+      if (return_code < 0) {
+        printf("error in running command\n");
+      }
+    }
+    return pid;
   }
-  
-  return pid;
 }
 
 int main(int argc, char const *argv[])
@@ -198,6 +207,13 @@ int cd (const char **tokens) {
 }
 
 int history(const char **tokens) {
+  int size = 0;
+  for (int i = 0; tokens[i] != NULL; i++)
+    size++;
+  if (size > 1) {
+    printf("too many arguments\n");
+    return -1;
+  }
   printf("history\n");
   int c;
   FILE *history_keeper;
@@ -207,6 +223,6 @@ int history(const char **tokens) {
           putchar(c);
       fclose(history_keeper);
   }
-
+  _exit(EXIT_SUCCESS);
   return 0;
 }
