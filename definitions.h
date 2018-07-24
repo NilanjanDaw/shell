@@ -1,3 +1,10 @@
+/*
+ * Filename: /home/nilanjan/Desktop/cs744/lab1/definitions.h
+ * Path: /home/nilanjan/Desktop/cs744/lab1
+ * Created Date: Sunday, July 22nd 2018, 11:37:05 pm
+ * Author: nilanjan
+ */
+
 #define MAX_INPUT_SIZE 1024
 #define MAX_TOKEN_SIZE 64
 #define MAX_NUM_TOKENS 64
@@ -21,3 +28,4 @@ int check_process_type(char **tokens, int start, int end);
 int insert_into_list(pid_t* list, pid_t pid, int size, int type);
 int remove_from_list(pid_t *list, pid_t pid, int size, int type);
 void print_list(pid_t *list, int size, int type);
+void clean_up_resources();

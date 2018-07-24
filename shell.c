@@ -18,7 +18,7 @@
 const char* SHELL_IMPLEMENTED_COMMANDS[] = {"cd", "history"};
 const int (*SHELL_IMPLEMENTED_COMMANDS_POINTER[2]) (const char **);
 pid_t background_process_list[MAX_PROCESS_LIST], foreground_process_list[MAX_PROCESS_LIST];
-int kill_count = 0;
+
 char **tokenize(char *line) {
   char **tokens = (char **)malloc(MAX_NUM_TOKENS * sizeof(char *));
   char *token = (char *)malloc(MAX_TOKEN_SIZE * sizeof(char));
@@ -91,26 +91,20 @@ void signal_handler(int signal) {
         kill(foreground_process_list[i], SIGTERM);
       }
     }
-    if (kill_count == 0)
-      printf("\nPress Ctrl + C again to exit.\n");
-    if (kill_count >= 1) {
-      printf("\nCleaning up processes\n");
-      for(int i = 0; i < MAX_PROCESS_LIST; i++) {
-        if (foreground_process_list[i] != 0) {
-          kill(foreground_process_list[i], SIGTERM);
-        }
-        if (background_process_list[i] != 0) {
-          kill(background_process_list[i], SIGTERM);
-          pid_t pid = waitpid(background_process_list[i], NULL, 0);
-          if (pid != 0 && pid != -1)
-            remove_from_list(background_process_list, pid, MAX_PROCESS_LIST, BACKGROUND_PROCESS);
-        }
-      }
-      printf("exit parent");
-      kill(getpid(), SIGTERM);
-    }
-    kill_count++;
   }
+}
+
+void clean_up_resources() {
+  printf("\nCleaning up processes\n");
+  for(int i = 0; i < MAX_PROCESS_LIST; i++) {
+    if (background_process_list[i] != 0) {
+      kill(background_process_list[i], SIGTERM);
+      pid_t pid = waitpid(background_process_list[i], NULL, 0);
+      if (pid != 0 && pid != -1)
+        remove_from_list(background_process_list, pid, MAX_PROCESS_LIST, BACKGROUND_PROCESS);
+    }
+  }
+  printf("exit shell\n");
 }
 
 int start_process(char **tokens, int type) {
@@ -164,15 +158,20 @@ int main(int argc, char const *argv[])
     FILE *history_keeper = fopen(HISTORY_KEEPER_PATH, "a");
     printf("Hello>");     
     bzero(line, MAX_INPUT_SIZE);
-    fgets(line, MAX_INPUT_SIZE, stdin);  
+    fgets(line, MAX_INPUT_SIZE, stdin); 
+    if (strlen(line) == 1)
+      continue;
     fprintf(history_keeper, "%s", line);
-    kill_count = 0;
     line[strlen(line)] = '\n'; 
     tokens = tokenize(line);
     int type = check_process_type(tokens, 0, 0);
     int process_execution_type;
     int endpoint = get_process_delimiters(tokens, 0, &process_execution_type);
     printf("type %d endpoint %d execution_type %d\n", type, endpoint, process_execution_type);
+    if (strcmp(tokens[0], "exit") == 0) {
+      clean_up_resources();
+      break;
+    }
     int pid = start_process(tokens, type);
     if (pid > 0 && type == FOREGROUND_PROCESS) {
       printf("foreground process\n");
@@ -182,12 +181,10 @@ int main(int argc, char const *argv[])
     for(i=0;tokens[i]!=NULL;i++){
         free(tokens[i]);
     }
-    free(tokens);
+    if (tokens != NULL)
+      free(tokens);
     fclose(history_keeper);
   }
-
-  
-  printf("closed history");
   return 0;
 }
 

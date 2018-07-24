@@ -1,3 +1,9 @@
+/*
+ * Filename: /home/nilanjan/Desktop/cs744/lab1/support.h
+ * Path: /home/nilanjan/Desktop/cs744/lab1
+ * Created Date: Sunday, July 22nd 2018, 11:09:58 pm
+ * Author: nilanjan
+ */
 
 int insert_into_list(pid_t* list, pid_t pid, int size, int type) {
   int status = -1;
