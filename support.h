@@ -44,14 +44,18 @@ void print_list(pid_t *list, int size, int type) {
   printf("\n");
 }
 
-int check_process_type(char **tokens, int start, int end) {
+int check_process_type(char **tokens) {
   int last_token_index = 0;
+  //printf("%s", tokens[0]);
   for(int i = 0; tokens[i] != NULL; i++) {
     last_token_index = i;
   }
+  // printf("%d", last_token_index);
   if (last_token_index >= 0) {
+
     char *last_token = tokens[last_token_index];
-    if (last_token[strlen(last_token) - 1] == '&' && last_token[strlen(last_token) - 2] != '&') {
+    // printf("%s", last_token);
+    if (last_token[strlen(last_token) - 1] == '&') {
       last_token[strlen(last_token) - 1] = '\0';
       if (strlen(last_token) == 0)
         tokens[last_token_index] = NULL;
@@ -62,22 +66,40 @@ int check_process_type(char **tokens, int start, int end) {
   return -1;
 }
 
-int get_process_delimiters(char **tokens, int start_point, int *type) {
+char **get_process_delimiters(char **tokens, int start_point, int *type, int *checkpoint) {
 
-  int end_point = -1;
+  // for (int i = 0; tokens[i] != NULL; i++) {
+  //   printf("%s ", tokens[i]);
+  // }
+  int end_point = 0, i = 0;
   *type = -1;
-  for(int i = start_point; tokens[i] != NULL; i++) {
+  for(i = start_point; tokens[i] != NULL; i++) {
+    end_point = i;
     if (strcmp(tokens[i], "&&&") == 0) {
-      end_point = i - 1;
       *type = PARALLEL_PROCESS;
+      end_point--;
       break;
     }
     else if (strcmp(tokens[i], "&&") == 0) {
-      end_point = i - 1;
       *type = SEQUENTIAL_PROCESS;
+      end_point--;
       break;
     }
   }
-  return end_point;
+  // // TODO: fix error no copy
+  *checkpoint = (tokens[i] != NULL)? end_point + 1: -1;
+  int number_of_tokens = end_point - start_point + 2;
+  // printf("%d %d %d %d\n", (end_point - start_point + 1), start_point, end_point, *checkpoint);
+  char **process = (char **)malloc( number_of_tokens * sizeof(char *));
+  int counter = 0;
+  for(i = start_point; i <= end_point; i++) {
+    // printf("%s %d\n", tokens[i], i);
+    process[counter] = (char*)malloc(strlen(tokens[i]) * sizeof(char));
+    strcpy(process[counter++], tokens[i]);
+  }
+  // printf("%s", process[0]);
+  process[counter] = NULL;
+  return process;
+  // return NULL;
 }
 
