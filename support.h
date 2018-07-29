@@ -67,12 +67,15 @@ int check_process_type(char **tokens) {
 }
 
 char **get_process_delimiters(char **tokens, int start_point, int *type, int *checkpoint) {
-
+  // printf("hello\n\n");
   // for (int i = 0; tokens[i] != NULL; i++) {
   //   printf("%s ", tokens[i]);
   // }
+  // printf("\nhello\n\n");
+  // printf("start_point %d", start_point);
   int end_point = 0, i = 0;
-  *type = -1;
+  //*type = -1;
+  // printf("\nhere 78\n");
   for(i = start_point; tokens[i] != NULL; i++) {
     end_point = i;
     if (strcmp(tokens[i], "&&&") == 0) {
@@ -86,10 +89,10 @@ char **get_process_delimiters(char **tokens, int start_point, int *type, int *ch
       break;
     }
   }
-  // // TODO: fix error no copy
-  *checkpoint = (tokens[i] != NULL)? end_point + 1: -1;
+  // printf("\nhere 92\n");
+  *checkpoint = (tokens[i] != NULL)? end_point + 2: -1;
   int number_of_tokens = end_point - start_point + 2;
-  // printf("%d %d %d %d\n", (end_point - start_point + 1), start_point, end_point, *checkpoint);
+  // printf("\n here 95 %d %d %d %d\n", (end_point - start_point + 1), start_point, end_point, *checkpoint);
   char **process = (char **)malloc( number_of_tokens * sizeof(char *));
   int counter = 0;
   for(i = start_point; i <= end_point; i++) {
@@ -99,6 +102,7 @@ char **get_process_delimiters(char **tokens, int start_point, int *type, int *ch
   }
   // printf("%s", process[0]);
   process[counter] = NULL;
+  // printf("process type: %s\n", (*type == SEQUENTIAL_PROCESS)? "Sequential": "Parallel");
   return process;
   // return NULL;
 }

@@ -12,11 +12,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include "definitions.h"
 #include "support.h"
 
 const char* SHELL_IMPLEMENTED_COMMANDS[] = {"cd", "history"};
 const int (*SHELL_IMPLEMENTED_COMMANDS_POINTER[2]) (const char **);
+bool exit_requested = false;
 pid_t background_process_list[MAX_PROCESS_LIST], foreground_process_list[MAX_PROCESS_LIST];
 
 char **tokenize(char *line) {
@@ -86,8 +88,10 @@ void signal_handler(int signal) {
     background_process_reaper();
   }
   if (signal == SIGINT) {
+    pid_t pid;
     for(int i = 0; i < MAX_PROCESS_LIST; i++) {
       if (foreground_process_list[i] != 0) {
+        printf("kill %d\n", foreground_process_list[i]);
         kill(foreground_process_list[i], SIGTERM);
       }
     }
@@ -149,13 +153,13 @@ int main(int argc, char const *argv[])
   char line[MAX_INPUT_SIZE];            
   char **tokens;              
   int i;
-  int process_execution_type = SEQUENTIAL_PROCESS;
   SHELL_IMPLEMENTED_COMMANDS_POINTER[0] = cd;
   SHELL_IMPLEMENTED_COMMANDS_POINTER[1] = history;
   signal(SIGCHLD, signal_handler);
   signal(SIGINT, signal_handler);
   while (1) {        
-    int checkpoint = 0; char **process;   
+    int checkpoint = 0;   
+    int process_execution_type = SEQUENTIAL_PROCESS;
     FILE *history_keeper = fopen(HISTORY_KEEPER_PATH, "a");
     printf("Hello>");     
     bzero(line, MAX_INPUT_SIZE);
@@ -169,23 +173,40 @@ int main(int argc, char const *argv[])
       clean_up_resources();
       break;
     }
-
-    process = get_process_delimiters(tokens, checkpoint, &process_execution_type, &checkpoint);
-    if (process != NULL) {
-      // printf("%s", process[0]);
+    while (checkpoint != -1) {
+      char **process;
+      // printf("checkpoint 174 %d\n", checkpoint);
+      process = get_process_delimiters(tokens, checkpoint, &process_execution_type, &checkpoint);
+      // printf("%s\n", process[0]);
       int type = check_process_type(process);
       // printf("type %d endpoint %d execution_type %d\n", type, checkpoint, process_execution_type);
       // printf("checkpoint %d\n", checkpoint);
       // for(size_t i = 0; process[i] != NULL; i++) {
       //   printf(" args %s ", process[i]);
       // }
-      
-      int pid = start_process(process, type);
-      if (pid > 0 && type == FOREGROUND_PROCESS) {
-        printf("foreground process\n");
-        foreground_process_reaper();
+      // printf("\n");
+
+      if (process != NULL) {
+        int pid = start_process(process, type);
+        // printf("process type: %s\n", (process_execution_type == SEQUENTIAL_PROCESS)? "Sequential": "Parallel");
+        if (pid > 0 && type == FOREGROUND_PROCESS && process_execution_type == SEQUENTIAL_PROCESS) {
+          // printf("foreground process\n");
+          foreground_process_reaper();
+        }
+        for (i = 0; process[i] != NULL; i++) {
+          free(process[i]);
+        }
+        free(process);  
       }
+
+      if (type == FOREGROUND_PROCESS && process_execution_type == PARALLEL_PROCESS)
+        foreground_process_reaper();
     }
+    // printf("\nout\n");
+    // if (process != NULL) {
+      
+      
+    // }
     // Freeing the allocated memory	
     for(i=0;tokens[i]!=NULL;i++){
         free(tokens[i]);
@@ -193,15 +214,10 @@ int main(int argc, char const *argv[])
     if (tokens != NULL)
       free(tokens);
 
-    if (process != NULL) {
-      for (i = 0; process[i] != NULL; i++) {
-        free(process[i]);
-      }
-      free(process);  
-    }
+    
     fclose(history_keeper);
   }
-  return 0;
+  return EXIT_SUCCESS;
 }
 
 int cd (const char **tokens) {
