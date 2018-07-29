@@ -61,12 +61,14 @@ void background_process_reaper() {
   int status;
   for (int i = 0; i < MAX_PROCESS_LIST; i++) {
     pid = waitpid(-1, &status, WNOHANG);
-    //pid = wait(NULL);
     if (pid == -1) {
       break;
     }
-    if (pid != 0 && pid != -1)
-      remove_from_list(background_process_list, pid, MAX_PROCESS_LIST, BACKGROUND_PROCESS);
+    if (pid != 0 && pid != -1) {
+      int status = remove_from_list(background_process_list, pid, MAX_PROCESS_LIST, BACKGROUND_PROCESS);
+      if (status == -1)
+        remove_from_list(foreground_process_list, pid, MAX_PROCESS_LIST, FOREGROUND_PROCESS);
+    }
   }
 }
 
@@ -95,6 +97,7 @@ void signal_handler(int signal) {
         kill(foreground_process_list[i], SIGTERM);
       }
     }
+    exit_requested = true;
   }
 }
 
@@ -160,6 +163,7 @@ int main(int argc, char const *argv[])
   while (1) {        
     int checkpoint = 0;   
     int process_execution_type = SEQUENTIAL_PROCESS;
+    int type = -1;
     FILE *history_keeper = fopen(HISTORY_KEEPER_PATH, "a");
     printf("Hello>");     
     bzero(line, MAX_INPUT_SIZE);
@@ -174,23 +178,20 @@ int main(int argc, char const *argv[])
       break;
     }
     while (checkpoint != -1) {
+
+      if (exit_requested) {
+
+        foreground_process_reaper();
+        break;
+      }
       char **process;
-      // printf("checkpoint 174 %d\n", checkpoint);
       process = get_process_delimiters(tokens, checkpoint, &process_execution_type, &checkpoint);
-      // printf("%s\n", process[0]);
-      int type = check_process_type(process);
-      // printf("type %d endpoint %d execution_type %d\n", type, checkpoint, process_execution_type);
-      // printf("checkpoint %d\n", checkpoint);
-      // for(size_t i = 0; process[i] != NULL; i++) {
-      //   printf(" args %s ", process[i]);
-      // }
-      // printf("\n");
+      type = check_process_type(process);
 
       if (process != NULL) {
+
         int pid = start_process(process, type);
-        // printf("process type: %s\n", (process_execution_type == SEQUENTIAL_PROCESS)? "Sequential": "Parallel");
         if (pid > 0 && type == FOREGROUND_PROCESS && process_execution_type == SEQUENTIAL_PROCESS) {
-          // printf("foreground process\n");
           foreground_process_reaper();
         }
         for (i = 0; process[i] != NULL; i++) {
@@ -198,24 +199,18 @@ int main(int argc, char const *argv[])
         }
         free(process);  
       }
-
-      if (type == FOREGROUND_PROCESS && process_execution_type == PARALLEL_PROCESS)
-        foreground_process_reaper();
     }
-    // printf("\nout\n");
-    // if (process != NULL) {
-      
-      
-    // }
+    if (type == FOREGROUND_PROCESS && process_execution_type == PARALLEL_PROCESS)
+        foreground_process_reaper();
     // Freeing the allocated memory	
     for(i=0;tokens[i]!=NULL;i++){
         free(tokens[i]);
     }
     if (tokens != NULL)
       free(tokens);
-
     
     fclose(history_keeper);
+    exit_requested = false;
   }
   return EXIT_SUCCESS;
 }
