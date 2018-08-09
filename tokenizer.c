@@ -1,3 +1,13 @@
+/**
+ * @Author: nilanjan
+ * @Date:   2018-07-19T14:18:50+05:30
+ * @Email:  nilanjandaw@gmail.com
+ * @Filename: tokenizer.c
+ * @Last modified by:   nilanjan
+ * @Last modified time: 2018-08-03T17:24:47+05:30
+ * @Copyright: Nilanjan Daw
+ */
+
 #include  <stdio.h>
 #include  <sys/types.h>
 #include <stdlib.h>
@@ -23,13 +33,13 @@ char **tokenize(char *line)
       if (tokenIndex != 0){
 	tokens[tokenNo] = (char*)malloc(MAX_TOKEN_SIZE*sizeof(char));
 	strcpy(tokens[tokenNo++], token);
-	tokenIndex = 0; 
+	tokenIndex = 0;
       }
     } else {
       token[tokenIndex++] = readChar;
     }
   }
- 
+
   free(token);
   tokens[tokenNo] = NULL ;
   return tokens;
@@ -38,33 +48,31 @@ char **tokenize(char *line)
 
 void  main(void)
 {
-     char  line[MAX_INPUT_SIZE];            
-     char  **tokens;              
+     char  line[MAX_INPUT_SIZE];
+     char  **tokens;
      int i;
 
-     while (1) {           
-       
-       printf("Hello>");     
+     while (1) {
+
+       printf("Hello>");
        bzero(line, MAX_INPUT_SIZE);
-       gets(line);           
+       gets(line);
        printf("Got command %s\n", line);
        line[strlen(line)] = '\n'; //terminate with new line
        tokens = tokenize(line);
-   
+
        //do whatever you want with the commands, here we just print them
 
-       for(i=0;tokens[i]!=NULL;i++){
-	 printf("found token %s\n", tokens[i]);
+       for(i=0;tokens[i]!=NULL;i++) {
+	        printf("found token %s\n", tokens[i]);
        }
-       
-       // Freeing the allocated memory	
+
+       // Freeing the allocated memory
        for(i=0;tokens[i]!=NULL;i++){
 	 free(tokens[i]);
        }
        free(tokens);
      }
-     
+
 
 }
-
-                

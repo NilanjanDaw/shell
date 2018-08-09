@@ -1,10 +1,17 @@
-/*
- * Filename: /home/nilanjan/Desktop/cs744/lab1/definitions.h
- * Path: /home/nilanjan/Desktop/cs744/lab1
- * Created Date: Sunday, July 22nd 2018, 11:37:05 pm
- * Author: nilanjan
+/**
+ * @Author: nilanjan
+ * @Date:   2018-07-24T23:39:21+05:30
+ * @Email:  nilanjandaw@gmail.com
+ * @Filename: definitions.h
+ * @Last modified by:   nilanjan
+ * @Last modified time: 2018-08-09T18:39:49+05:30
+ * @Copyright: Nilanjan Daw
  */
 
+
+/**
+ * Constant Declarations
+**/
 #define MAX_INPUT_SIZE 1024
 #define MAX_TOKEN_SIZE 64
 #define MAX_NUM_TOKENS 64
@@ -15,7 +22,9 @@
 #define SEQUENTIAL_PROCESS 2
 #define PARALLEL_PROCESS 3
 
-
+/**
+ * function definitions
+**/
 char **tokenize(char *line);
 int cd(const char **tokens);
 int history(const char **tokens);
